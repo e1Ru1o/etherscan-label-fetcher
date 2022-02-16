@@ -6,12 +6,12 @@ from urllib.parse import urljoin
 ADDR_RE = r"0x[a-fA-F0-9]{40}"
 
 
-def get_payload(label, start, length):
+def get_payload(label, start, length, key):
     return {
         "dataTableModel": {
             "draw": 1,
             "columns": [{
-                "data": "address",
+                "data": key,
                 "name": "",
                 "searchable": True,
                 "orderable": False,
@@ -38,7 +38,8 @@ def get_payload(label, start, length):
 
 
 def main(args):
-    site = urljoin(args.explorer, "accounts.aspx/GetTableEntriesBySubLabel")
+    endpoint, key = args.data
+    site = urljoin(args.explorer, endpoint)
 
     args.length = min(args.length, 100)
 
@@ -51,12 +52,12 @@ def main(args):
     addresses = []
     try:
         while True:
-            payload = get_payload(args.label, args.start, args.length)
+            payload = get_payload(args.label, args.start, args.length, key)
             response = requests.post(site, headers=headers, data=json.dumps(payload))
             data = response.json()['d']
 
             for item in data["data"]:
-                addresses.append(re.findall(ADDR_RE, item["address"])[0])
+                addresses.append(re.findall(ADDR_RE, item[key])[0])
             
             args.start += args.length
             if args.start >= data["recordsTotal"]:
@@ -75,6 +76,8 @@ if __name__ == "__main__":
     parser.add_argument("--offset",   "-o", dest="start",    type=int, default=0, help="Offset of addresses to skip")
     parser.add_argument("--session",  "-s", dest="session",  type=str, required=True, help="ASP.NET_SessionId from the explorer cookies")
     parser.add_argument("--explorer", "-e", dest="explorer", type=str, default="https://etherscan.io", help="Etherscan-like explorer url")
+    parser.add_argument("--token",    "-t", dest="data",     action="store_const", const=("/tokens.aspx/GetTokensBySubLabel", "contractAddress"), help="Fetch dangerous tokens")
+    parser.set_defaults(data=("/accounts.aspx/GetTableEntriesBySubLabel", "address"))
 
     args = parser.parse_args()
 
